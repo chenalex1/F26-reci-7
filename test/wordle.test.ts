@@ -13,11 +13,50 @@ import { matchGuess } from '../src/wordle';
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 // Step 1: a generator for five-letter uppercase words.
-// const word = ...
+const wordFrom = (letters: string) => 
+  fc.array(fc.constantFrom(...letters), { minLength: 5, maxLength: 5 }).map(cs => cs.join(''));
+const word = wordFrom(ALPHABET);
 
 describe('matchGuess', () => {
-  it.todo('returns exactly five colors');
-  it.todo('only uses the colors G, Y, B');
-  it.todo('guessing the secret gives all greens');
-  it.todo('never credits a letter more times than the secret contains it');
+  // Pattern: invariant. The result will always have exactly five colors.
+  it('returns exactly five colors', () => {
+    fc.assert(
+      fc.property(word, word, (secret, guess) => {
+        expect(matchGuess(secret, guess)).toHaveLength(5);
+      }),
+    );
+  });
+
+  // Pattern: invariant. The result will always only use the colors green, yellow and black.
+  it('only uses the colors G, Y, B', () => {
+    fc.assert(
+      fc.property(word, word, (secret, guess) => {
+        for (const c of matchGuess(secret, guess)) expect(['G', 'Y', 'B']).toContain(c);
+      }),
+    );
+  });
+
+  // Pattern: conditional. If the word is correct, it should be all greens
+  it('guessing the secret gives all greens', () => {
+    fc.assert(
+      fc.property(word, (secret) => {
+        expect(matchGuess(secret, secret)).toEqual(['G', 'G', 'G', 'G', 'G']);
+      }),
+    );
+  });
+
+  // Pattern: invariant. For each letter that exists, it will always have less credited 
+  // letters in the final result.
+  it('never credits a letter more times than the secret contains it', () => {
+    fc.assert(
+      fc.property(word, word, (secret, guess) => {
+        const result = matchGuess(secret, guess);
+        for (const letter of new Set(guess)) {
+          const credited = [...guess].filter((c, i) => c === letter && result[i] !== 'B').length;
+          const inSecret = [...secret].filter(c => c === letter).length;
+          expect(credited).toBeLessThanOrEqual(inSecret);
+        }
+      }),
+    );
+  });
 });
